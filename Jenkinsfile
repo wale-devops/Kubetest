@@ -1,62 +1,61 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:24.0.2-cli'   // Docker CLI image
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
-        IMAGE_NAME = "olawaledevops/nginx-trixie"  // Your Docker Hub username
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
-        KUBE_MANIFEST_DIR = "Kube1"
+        IMAGE_NAME = 'olawaledevops/nginx-trixie'
+        IMAGE_TAG  = '3'
+        DOCKER_CREDENTIALS = 'dockerhub-cred'
+        KUBE_CONFIG = credentials('kubeconfig-cred') // optional if using kubectl
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                git branch: 'master', url: 'https://github.com/wale-devops/Kubetest.git'
+                git url: 'https://github.com/wale-devops/Kubetest.git', branch: 'master'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    // Build Docker image from app/Dockerfile
-                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} app/"
-                }
+                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG app/'
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    // Login to Docker Hub using Jenkins credentials
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-                    }
+                withCredentials([usernamePassword(
+                    credentialsId: "$DOCKER_CREDENTIALS",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker push $IMAGE_NAME:$IMAGE_TAG
+                    '''
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    // Update deployment manifest with new image tag
-                    sh "sed -i 's|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' ${KUBE_MANIFEST_DIR}/app-deployment.yaml"
-
-                    // Deploy using in-cluster credentials
-                    sh "kubectl apply -f ${KUBE_MANIFEST_DIR}/app-deployment.yaml"
-                    sh "kubectl apply -f ${KUBE_MANIFEST_DIR}/app-service.yaml"
-                }
+                sh '''
+                    kubectl apply -f k8s/   # adjust path to your manifests
+                '''
             }
         }
-
     }
 
     post {
         success {
-            echo "✅ Full CI/CD pipeline completed successfully!"
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo "❌ Pipeline failed. Check logs for details."
+            echo '❌ Pipeline failed. Check logs for details.'
         }
     }
 }
