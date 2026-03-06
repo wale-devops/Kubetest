@@ -1,56 +1,53 @@
 pipeline {
     agent any
-
+    
     environment {
-        IMAGE_NAME = 'olawaledevops/nginx-trixie'
-        IMAGE_TAG  = '3'
-        DOCKER_CREDENTIALS = 'dockerhub-cred'
-        KUBE_CONFIG = credentials('kubeconfig-cred') // optional if using kubectl
+        DOCKER_IMAGE = 'olawaledevops/static-app'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        GIT_REPO = 'https://github.com/wale-devops/Kubetest.git'
+        GIT_BRANCH = 'master'
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/wale-devops/Kubetest.git', branch: 'master'
+                git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
             }
         }
-
-        stage('Build Docker Image') {
+        
+        stage('Build & Push Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG app/'
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: "$DOCKER_CREDENTIALS",
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh '''
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push $IMAGE_NAME:$IMAGE_TAG
-                    '''
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
+                        // Build image from app directory
+                        def appImage = docker.build("${DOCKER_IMAGE}:latest", 'app/')
+                        
+                        // Push both latest and versioned tag
+                        appImage.push()
+                        appImage.push("${DOCKER_TAG}")
+                    }
                 }
             }
         }
-
+        
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    kubectl apply -f k8s/   # adjust path to your manifests
+                    echo "Deploying from kube1 directory..."
+                    kubectl apply -f kube1/
+                    kubectl rollout status deployment/static-app --timeout=60s || true
+                    kubectl get pods
                 '''
             }
         }
     }
-
+    
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo "✅ Pipeline completed! Image: ${DOCKER_IMAGE}:${DOCKER_TAG} deployed from ${GIT_BRANCH} branch"
         }
         failure {
-            echo '❌ Pipeline failed. Check logs for details.'
+            echo "❌ Pipeline failed! Check the logs for details."
         }
     }
 }
