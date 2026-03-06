@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'bitnami/kubectl:latest' // official kubectl image
+            args '-v $HOME/.kube:/root/.kube' // mount kubeconfig
+        }
+    }
 
     environment {
         IMAGE = "nginx:trixie"
@@ -7,7 +12,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'master', url: 'https://github.com/wale-devops/Kubetest.git'
@@ -20,7 +24,6 @@ pipeline {
                 sh "kubectl apply -f ${KUBE_MANIFEST_DIR}/app-service.yaml"
             }
         }
-
     }
 
     post {
