@@ -10,7 +10,7 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
         GIT_REPO = 'https://github.com/wale-devops/Kubetest.git'
         GIT_BRANCH = 'master'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-cred'
     }
 
     stages {
