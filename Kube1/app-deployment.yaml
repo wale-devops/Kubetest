@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: webapp
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: webapp
@@ -12,9 +12,10 @@ spec:
       labels:
         app: webapp
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker-node-1
       containers:
-      - name: webapp
-        image: olawaledevops/static-app:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 80
+        - name: webapp
+          image: olawaledevops/static-app:latest
+          ports:
+            - containerPort: 80
