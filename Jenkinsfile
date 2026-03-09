@@ -10,7 +10,7 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
         GIT_REPO = 'https://github.com/wale-devops/Kubetest.git'
         GIT_BRANCH = 'master'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-cred'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
     }
 
     stages {
@@ -44,9 +44,9 @@ pipeline {
                 sh """
                     kubectl apply -f kube1/app-deployment.yaml
                     kubectl apply -f kube1/app-service.yaml
-                    kubectl set image deployment/webapp webapp=${DOCKER_IMAGE}:${DOCKER_TAG} --record
+                    kubectl set image deployment/webapp webapp=${DOCKER_IMAGE}:${DOCKER_TAG}
                     kubectl rollout status deployment/webapp --timeout=120s
-                    kubectl get pods
+                    kubectl get pods -o wide
                     kubectl get svc
                 """
             }
@@ -55,13 +55,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+            echo "Pipeline completed successfully: ${DOCKER_IMAGE}:${DOCKER_TAG}"
         }
         failure {
-            echo "❌ Pipeline failed. Check console output."
-        }
-        always {
-            sh 'docker image prune -f || true'
+            echo "Pipeline failed. Check console output."
         }
     }
 }
