@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker-node-1
+      containers:
+        - name: webapp
+          image: olawaledevops/static-app:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
