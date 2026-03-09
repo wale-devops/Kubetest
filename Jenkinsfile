@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     environment {
         DOCKER_IMAGE = 'olawaledevops/static-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
@@ -18,7 +22,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    appImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", 'app/')
+                    appImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", 'webapp/')
                 }
             }
         }
@@ -38,11 +42,12 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
-                    echo "Applying Kubernetes manifests..."
-                    kubectl apply -f kube1/
-                    kubectl set image deployment/static-app static-app=${DOCKER_IMAGE}:${DOCKER_TAG}
-                    kubectl rollout status deployment/static-app --timeout=60s
+                    kubectl apply -f kube1/app-deployment.yaml
+                    kubectl apply -f kube1/app-service.yaml
+                    kubectl set image deployment/webapp webapp=${DOCKER_IMAGE}:${DOCKER_TAG}
+                    kubectl rollout status deployment/webapp --timeout=120s
                     kubectl get pods
+                    kubectl get svc
                 """
             }
         }
@@ -50,13 +55,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed! Image: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+            echo "✅ Pipeline completed successfully: ${DOCKER_IMAGE}:${DOCKER_TAG}"
         }
         failure {
-            echo "❌ Pipeline failed. Check the console output."
-        }
-        always {
-            sh 'docker logout || true'
+            echo "❌ Pipeline failed. Check console output."
         }
     }
 }
